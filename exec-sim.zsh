@@ -12,8 +12,6 @@ mkdir -p $RESULTS_DIR/prog
 
 [ -z "$1" ] && CONFIG="-config ${DIR}/default.cfg" || CONFIG="-config ${DIR}/$1"
 echo CONFIG: $CONFIG
-# CONFIG="-config ${DIR}/Golden-Cove/config.cfg"
-# CONFIG="-config ${DIR}/Zen3/config.cfg"
 
 
 ## "Se saltaran 50M de ins, y se recolectaran las siguientes 50M"
