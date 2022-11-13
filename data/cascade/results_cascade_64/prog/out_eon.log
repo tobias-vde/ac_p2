@@ -1,0 +1,16 @@
+Eon, Version 1.1
+getting pixel output filename pixels_out.cook
+opening control file chair.control.cook
+opening camera file chair.camera
+opening surfaces file chair.surfaces
+reading data
+processing 8parts
+Grid measure is 6 by 3.0001 by 6
+cell dimension is 0.863065
+Creating grid for list of length 21
+Grid size = 7 by 4 by 7
+Total occupancy = 236
+reading control stream
+reading camera stream
+Writing to chair.cook.ppm
+calculating 150 by 150 image with 400 samples

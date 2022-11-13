@@ -929,7 +929,7 @@ void bpred_update(
 				//Add to gshare as STRONG taken or STRONG not taken
 				if (dir_update_ptr->pdir2) *dir_update_ptr->pdir2 = taken ? 0b11 : 0b00; // Add STRONG taken or STRONG not taken
 			}
-		} else { //ghsared was used
+		} else { //gshare was used
 			if (dir_update_ptr->pdir2) { // update gshare saturating counter
 				if (taken) {
 					if (*dir_update_ptr->pdir2 < 3) ++*dir_update_ptr->pdir2;

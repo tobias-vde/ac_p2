@@ -126,9 +126,9 @@ static int comb_config[1] = { /* meta_table_size */ 1024 };
 /* cascade predictor config (<bimod_size> <gbhr_width> <gshare_size>) */
 static int cascade_nelt = 3;
 static int cascade_config[3] = {
-	4, /* PHTb (bimod) size [4, 8, 16, 32, 64] */
-	3, /* GBHR width (bits) [3, 5, 7, 9, 11] */
-	8, /* PHTg (gshare) size [8, 32, 128, 512, 2048] */
+	64, /* PHTb (bimod) size [4, 8, 16, 32, 64] */
+	11, /* GBHR width (bits) [3, 5, 7, 9, 11] */
+	2048, /* PHTg (gshare) size [8, 32, 128, 512, 2048] */
 };
 
 /* return address stack (RAS) size */
@@ -933,7 +933,7 @@ void sim_check_options(struct opt_odb_t* odb, /* options database */
 			/* ret-addr stack size */ ras_size);
 	} else if (!mystricmp(pred_type, "cascade")) {
 		/* combining predictor, bpred_create() checks args */
-		if (cascade_nelt == 3) {
+		if (cascade_nelt == 3) { //-bpred:cascade <><><>
 			pred = bpred_create(BPredCascade,
 				/* bimod table size */ cascade_config[0], //PHTb
 				/* l1 size */ 1,
