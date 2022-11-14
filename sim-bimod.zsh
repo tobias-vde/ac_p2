@@ -63,8 +63,9 @@ for V in 8 32 128 512 2048; do
 	echo
 	echo MESA: $SIM_CMD $MESA_CMD
 	sh -c "cd $MESA_DATA_DIR && $SIM_CMD $MESA_CMD" &
-
-	wait
-	echo DONE
 done
+
+wait
+echo DONE
+
 exit

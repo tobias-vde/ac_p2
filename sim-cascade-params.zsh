@@ -6,16 +6,26 @@ echo SIM: $SIM_DIR
 echo BENCHMARKS: $BENCHMARKS_DIR
 
 
-## sim with -bpred:cascade
+## script cascade
+## "-bpred:bimod"  +  "-bpred:2lev"
+# (should produce same results as ./sim-cascade.zsh)
 
-# 4, /* PHTb (bimod) size [4, 8, 16, 32, 64]
-# 3, /* GBHR width (bits) [3, 5, 7, 9, 11]
-# 8, /* PHTg (gshare) size [8, 32, 128, 512, 2048]
+# PHTb (bimod) size [4, 8, 16, 32, 64]
+# GBHR width (bits) [3, 5, 7, 9, 11]
+# PHTg (gshare) size [8, 32, 128, 512, 2048]
 
 
 for V in "4 3 8" "8 5 32" "16 7 128" "32 9 512" "64 11 2048"; do
+	# bimod table size
 	Y=$(echo $V | cut -f1 -d' ') # 4, 8, 16, 32, 64
-	RESULTS_DIR="$DIR/results_cascade_${Y}"
+	
+	# GBHR vals
+	G=$(echo $V | cut -f2 -d' ') # 3, 5, 7, 9, 11
+
+	# gshare table size
+	X=$(echo $V | cut -f3 -d' ') # 8, 32, 128, 512, 2048
+
+	RESULTS_DIR="$DIR/results_cascade_params_${Y}"
 
 	echo RESULTS_DIR: $RESULTS_DIR
 	mkdir -p $RESULTS_DIR/prog
@@ -27,8 +37,9 @@ for V in "4 3 8" "8 5 32" "16 7 128" "32 9 512" "64 11 2048"; do
 		-max:inst 50000000 \
 		-mem:width 32 \
 		-mem:lat 300 2 \
-		-bpred cascade \
-		-bpred:cascade $V"
+		-bpred:bimod $Y \
+		-bpred:2lev 1 $X $G 1 \
+		-bpred cascade"
 
 	## AMMP, EON, EQUAKE, GAP, MESA
 	#

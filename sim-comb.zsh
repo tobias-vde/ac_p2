@@ -82,13 +82,9 @@ for V in "4 3 8" "8 5 32" "16 7 128" "32 9 512" "64 11 2048"; do
 	echo
 	echo MESA: $SIM_CMD $MESA_CMD
 	sh -c "cd $MESA_DATA_DIR && $SIM_CMD $MESA_CMD" &
-
 done
 
-time_start=$(date +%s)
 wait
-time_end=$(date +%s)
+echo DONE
 
-delta=$((time_end-time_start))
-echo DONE [${delta} s]
 exit
