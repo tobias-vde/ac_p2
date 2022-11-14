@@ -700,22 +700,27 @@ bpred_lookup(struct bpred_t* pred,		   /* branch predictor instance */
 		return (pbtb ? pbtb->target : 1);
 	}
 
-	//TODO: revisar
+	//TODO: revisar / simplificar
 	if (pred->class == BPredCascade) {
 		//return prediction for CASCADE:
 		// (conditional branch)
 		if (pbtb == NULL) {
 			/* BTB miss -- just return a predicted direction */
+			//NOTE: "predicted direction" meaning: 
+			//	0 = NOT_TAKEN;
+			//	1 = TAKEN (but I don't know where to)
+			// if gshare had a pred: return gshare pred
+			// else: return bimod pred
 			return dir_update_ptr->dir.meta ? dir_update_ptr->dir.twolev : dir_update_ptr->dir.bimod;
-			// if gshare had a pred, return gshare pred
-			// else return bimod pred
 		}
 		/* BTB hit, so return target if it's a predicted-taken branch */
+		// md_addr_t bimod_target = dir_update_ptr->dir.bimod ? pbtb->target : 0;
+		// md_addr_t gshare_target = dir_update_ptr->dir.twolev ? pbtb->target : 0;
+		//return dir_update_ptr->pmeta ? gshare_target : bimod_target;
 		if (dir_update_ptr->dir.meta) { // if gshare:
 			return dir_update_ptr->dir.twolev ? pbtb->target : 0; // return target or not taken
-		} else { // if bimod:
-			return dir_update_ptr->dir.bimod ? pbtb->target : 0; // return target or not taken
-		}
+		} // else: return bimod pred
+		return dir_update_ptr->dir.bimod ? pbtb->target : 0; // return target or not taken
 	}
 
 	/* otherwise we have a conditional branch */
