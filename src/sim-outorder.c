@@ -124,7 +124,11 @@ static int comb_nelt = 1;
 static int comb_config[1] = { /* meta_table_size */ 1024 };
 
 /* cascade predictor config (<bimod_size> <gbhr_width> <gshare_size>) */
-static int cascade_nelt = 3;
+//NOTE: @ opt_reg_int_list(<...>, &cascade_nelt...) is only updated IF the user specifies "-bpred:cascade".
+// To check if user configures with ("-bpred:bimod" && "-bpred:2lev"):
+// init this cascade_nelt = 0, and let user overwrite to nelt = 3; with "-bpred:cascade ..."
+// If user does not give a valid "-bpred:cascade ...", check if cascade_nelt != 3
+static int cascade_nelt = 0;
 static int cascade_config[3] = {
 	64, /* PHTb (bimod) size [4, 8, 16, 32, 64] */
 	11, /* GBHR width (bits) [3, 5, 7, 9, 11] */
@@ -640,7 +644,7 @@ void sim_reg_options(struct opt_odb_t* odb)
 		/* print */ TRUE, /* format */ NULL, /* !accrue */ FALSE);
 	opt_reg_int_list(odb, "-bpred:cascade",
 		"cascade predictor config (<bimod_size> <gbhr_width> <gshare_size>)",
-		cascade_config, cascade_nelt, &cascade_nelt,
+		cascade_config, /* NOTE:nargs*/ 3, &cascade_nelt, //overwrite if user specifies
 		/* default */ cascade_config,
 		/* print */ TRUE, /* format */ NULL, /* !accrue */ FALSE);
 
@@ -938,29 +942,37 @@ void sim_check_options(struct opt_odb_t* odb, /* options database */
 				/* bimod table size */ cascade_config[0], //PHTb
 				/* l1 size */ 1,
 				/* l2 size */ cascade_config[2], //PHTg
-				/* meta table size */ 0, //TODO: unused?
+				/* meta table size */ 0, //NOTE: unused?
 				/* history reg size */ cascade_config[1], //GBHR width
 				/* history xor address */ TRUE,
 				/* btb sets */ btb_config[0],
 				/* btb assoc */ btb_config[1],
 				/* ret-addr stack size */ ras_size);
+			// TODO: get output stream?
+			//bpred_config(pred, stdout); //NOTE: print Cascade config
 		} else if (cascade_nelt != 0) {
 			fatal("bad cascade predictor config (<bimod_size> <gbhr_width> <gshare_size>)");
 		} else { // manual bimod && gshare config?, cause no -bpred:cascade <...> input
 			if (twolev_nelt != 4) fatal("bad 2-level pred config (<l1size> <l2size> <hist_size> <xor>)");
 			if (bimod_nelt != 1) fatal("bad bimod predictor config (<table_size>)");
 			if (btb_nelt != 2) fatal("bad btb config (<num_sets> <associativity>)");
+
 			pred = bpred_create(BPredCascade,
 				/* bimod table size */ bimod_config[0],
 				/* l1 size */ twolev_config[0],
 				/* l2 size */ twolev_config[1],
-				/* meta table size */ 0, //TODO: unused?
+				/* meta table size */ 0, //NOTE: unused?
 				/* history reg size */ twolev_config[2],
 				/* history xor address */ twolev_config[3], //for gshare should be xor=TRUE
 				/* btb sets */ btb_config[0],
 				/* btb assoc */ btb_config[1],
 				/* ret-addr stack size */ ras_size);
-			}
+			
+			//NOTE: To avoid buggy bugs: add params with "-bpred:cascade <bimod_size> <gbhr_width> <gshare_size>" instead.
+			// TODO: get output stream?
+			//bpred_config(pred, stdout); //NOTE: print Cascade config
+			//fatal("ERROR: bad params for cascade config. Use [-bpred:cascade <bimod_size> <gbhr_width> <gshare_size>] instead...");
+		}
 
 	} else {
 		fatal("cannot parse predictor type `%s'", pred_type);
