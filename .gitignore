@@ -58,3 +58,6 @@ dkms.conf
 # por ahora no añadir resultados a la repo (dejar en un drive o algo idk)
 /results/
 
+# clangd generated compile directives (bear -- make)
+compile_commands.json
+.cache/
