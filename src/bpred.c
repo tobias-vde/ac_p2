@@ -97,7 +97,9 @@ bpred_create(enum bpred_class class, /* type of predictor to create */
 			/* bimodal component */
 			//TODO: check args...
 			pred->dirpred.bimod = bpred_dir_create(BPred2bit, bimod_size, 0, 0, 0);
-
+			
+			//NOTE: En bpred_dir_create(BPred2bit, ...) ya se llena de "alternating weakly taken & not taken" ( 2 1 2 1 ...)
+			//Para no cambiar mucho bpred_dir_create(), se llena la tabla otra aqui:
 			for (unsigned int i = 0; i < bimod_size; i++) {
 				pred->dirpred.bimod->config.bimod.table[i] = 0b11; // fill with "TAKEN"
 			}
@@ -109,12 +111,12 @@ bpred_create(enum bpred_class class, /* type of predictor to create */
 			//Overwrite gshare table with markers for uninitialized values
 			unsigned char * phtg = pred->dirpred.twolev->config.two.l2table;
 			for (unsigned int i = 0; i < l2size; i++) {
-				phtg[i] = 4; //MARKER: means unused
+				phtg[i] = 4; //MARKER "4" = means unused
 			}
 
 			/* metapredictor component */
 			//pred->dirpred.meta = bpred_dir_create(BPred2bit, meta_size, 0, 0, 0);
-			//TODO: meta?
+			//NOTE: No usamos metapredictor: simplemente con mirar si existe en l2table ya basta.
 			break;
 
 		case BPred2Level:
@@ -137,7 +139,7 @@ bpred_create(enum bpred_class class, /* type of predictor to create */
 	/* allocate ret-addr stack */
 	switch (class) {
 		case BPredComb:
-		case BPredCascade: //TODO: RAS??
+		case BPredCascade: //NOTE: dejar RAS como esta
 		case BPred2Level:
 		case BPred2bit: {
 			int i;
@@ -602,22 +604,19 @@ bpred_lookup(struct bpred_t* pred,		   /* branch predictor instance */
 			}
 			break;
 
-		case BPredCascade: //TODO: empieza la fiesta: CASCADE algo
-			if ((MD_OP_FLAGS(op) & (F_CTRL | F_UNCOND)) != (F_CTRL | F_UNCOND)) { // si es branch
+		case BPredCascade: //NOTE: impl lookup cascade
+			if ((MD_OP_FLAGS(op) & (F_CTRL | F_UNCOND)) != (F_CTRL | F_UNCOND)) { // si es instr branch
 				char * bimod = bpred_dir_lookup(pred->dirpred.bimod, baddr);
 				char * gshare = bpred_dir_lookup(pred->dirpred.twolev, baddr);
-				//char *meta = bpred_dir_lookup(pred->dirpred.meta, baddr);
-				//dir_update_ptr->pmeta = meta;
-				//dir_update_ptr->dir.meta = (*meta >= 2);
 				dir_update_ptr->dir.bimod = !!(*bimod & 0b10); // if MSB is set -> taken
 				dir_update_ptr->dir.twolev = !!(*gshare & 0b10); //if MSB is set -> taken
 
-				//pdir1 & pdir2 = puntero (char*) a la entrada en la tabla PHTb o PHTg.
-				//se utiliza para no tener que ir a buscar el puntero al saturating counter otra vez en bpred_update()
+				//pdir1 & pdir2 = ptr (char*) a la entrada en la tabla PHTb o PHTg.
+				//NOTE: se utiliza para no tener que ir a buscar el puntero al saturating counter otra vez en bpred_update()
 				dir_update_ptr->pdir1 = bimod;
 				dir_update_ptr->pdir2 = gshare;
 
-				dir_update_ptr->dir.meta = (*gshare <= 3); // if gshare had info, use gshare
+				dir_update_ptr->dir.meta = (*gshare <= 3); //NOTE: if gshare had info, use gshare, and indicate we used gshare
 			}
 			break;
 		case BPred2Level:
@@ -703,14 +702,20 @@ bpred_lookup(struct bpred_t* pred,		   /* branch predictor instance */
 
 	//TODO: revisar
 	if (pred->class == BPredCascade) {
-		//return prediction from CASCADE algo:
+		//return prediction for CASCADE:
 		// (conditional branch)
 		if (pbtb == NULL) {
 			/* BTB miss -- just return a predicted direction */
-			return dir_update_ptr->dir.twolev ? 1 : dir_update_ptr->dir.bimod;
+			return dir_update_ptr->dir.meta ? dir_update_ptr->dir.twolev : dir_update_ptr->dir.bimod;
+			// if gshare had a pred, return gshare pred
+			// else return bimod pred
 		}
 		/* BTB hit, so return target if it's a predicted-taken branch */
-		return dir_update_ptr->dir.twolev ? pbtb->target : dir_update_ptr->dir.bimod;
+		if (dir_update_ptr->dir.meta) { // if gshare:
+			return dir_update_ptr->dir.twolev ? pbtb->target : 0; // return target or not taken
+		} else { // if bimod:
+			return dir_update_ptr->dir.bimod ? pbtb->target : 0; // return target or not taken
+		}
 	}
 
 	/* otherwise we have a conditional branch */
@@ -782,7 +787,7 @@ void bpred_update(
 		if (correct)
 			pred->ras_hits++;
 	} else if ((MD_OP_FLAGS(op) & (F_CTRL | F_COND)) == (F_CTRL | F_COND)) {
-		if (dir_update_ptr->dir.meta) { // if ghsared or meta was used:
+		if (dir_update_ptr->dir.meta) { // if gshare (or meta) was used:
 			pred->used_2lev++;
 		} else {
 			pred->used_bimod++;
@@ -842,8 +847,9 @@ void bpred_update(
 		if (pred->btb.assoc > 1) {
 			index *= pred->btb.assoc;
 
-			/* Now we know the set; look for a PC match; also identify
-       * MRU and LRU items */
+			/* Now we know the set;
+			 * look for a PC match;
+			 * also identify MRU and LRU items */
 			for (i = index; i < (index + pred->btb.assoc); i++) {
 				if (pred->btb.btb_data[i].addr == baddr) {
 					/* match */
@@ -865,20 +871,20 @@ void bpred_update(
 			}
 			dassert(lruhead && lruitem);
 
-			if (!pbtb)
+			if (!pbtb) {
 				/* missed in BTB; choose the LRU item in this set as the victim */
 				pbtb = lruitem;
+			}
 			/* else hit, and pbtb points to matching BTB entry */
 
-			/* Update LRU state: selected item, whether selected because it
-       * matched or because it was LRU and selected as a victim, becomes
-       * MRU */
+			/* Update LRU state: selected item,
+			 * whether selected because it matched
+			 * or because it was LRU and selected as a victim,
+			 * becomes MRU */
 			if (pbtb != lruhead) {
 				/* this splices out the matched entry... */
-				if (pbtb->prev)
-					pbtb->prev->next = pbtb->next;
-				if (pbtb->next)
-					pbtb->next->prev = pbtb->prev;
+				if (pbtb->prev) pbtb->prev->next = pbtb->next;
+				if (pbtb->next) pbtb->next->prev = pbtb->prev;
 				/* ...and this puts the matched entry at the head of the list */
 				pbtb->next = lruhead;
 				pbtb->prev = NULL;
@@ -892,11 +898,9 @@ void bpred_update(
 		}
 	}
 
-	/*
-   * Now 'p' is a possibly null pointer into the direction prediction table,
-   * and 'pbtb' is a possibly null pointer into the BTB (either to a
-   * matched-on entry or a victim which was LRU in its set)
-   */
+	/* Now 'p' is a possibly null pointer into the direction prediction table,
+	* and 'pbtb' is a possibly null pointer into the BTB (either to a
+	* matched-on entry or a victim which was LRU in its set) */
 
 	/* update BTB (but only for taken branches) */
 	if (pbtb) {
@@ -927,7 +931,7 @@ void bpred_update(
 		if (!dir_update_ptr->dir.meta) { //bimod was used
 			if (!!pred_taken != !!taken) { //bimod was wrong
 				//Add to gshare as STRONG taken or STRONG not taken
-				if (dir_update_ptr->pdir2) *dir_update_ptr->pdir2 = taken ? 0b11 : 0b00; // Add STRONG taken or STRONG not taken
+				if (dir_update_ptr->pdir2) *dir_update_ptr->pdir2 = taken ? 0b11 : 0b00;
 			}
 		} else { //gshare was used
 			if (dir_update_ptr->pdir2) { // update gshare saturating counter
@@ -965,5 +969,4 @@ void bpred_update(
 			}
 		}
 	}
-
 }
